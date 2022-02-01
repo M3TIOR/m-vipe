@@ -1,0 +1,4 @@
+build/
+deps/.gnulib-source
+
+/**/CMakeFiles/
