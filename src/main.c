@@ -5,7 +5,6 @@
 
 // Standard Includes
 #include <stdbool.h>
-#include <unistd.h>
 #include <string.h> // unistd must be before string.h to ensure deterministic strdup
 #include <stdint.h>
 #include <stdlib.h>
@@ -15,7 +14,9 @@
 #include <math.h>
 
 // External Includes
+#include <unistd.h>
 #include <spawn.h>
+#include <fcntl.h>
 #include <limits.h> // ARG_MAX
 #include <sys/mman.h>
 #include <sys/wait.h>
@@ -59,8 +60,8 @@
 )
 
 static const char *const usage[] = {
-	"m-vipe [-V] [-f FILE] [-w [TERM]] [[--] COMMAND [ARGS...]]",
-	"m-vipe [-vh]",
+	"m-vipe [-Vwv] [-f FILE] [[--] EDITOR [ARGS...]]",
+	"m-vipe [-h] [--version]",
 	NULL,
 };
 
@@ -324,10 +325,12 @@ int main(int argc, const char** argv) {
 	// int stream = 0;
 	int volat = 0;
 	int verbose = 0;
-	// int secure = 0;
 	int show_version = 0;
-	const char *new_window = NULL;
+	int new_window = 0;
 	const char *frompath = NULL;
+	FILE* safp = NULL;
+	int safd;
+
 	struct argparse_option options[] = {
 		OPT_GROUP("POSIX Options:"),
 		OPT_HELP(),
@@ -359,7 +362,7 @@ int main(int argc, const char** argv) {
 			"Stores the pipe contents being modified completely in volatile memory. (RAM)",
 			NULL, 0, 0
 		),
-		OPT_STRING('w', "new-window", &new_window,
+		OPT_BOOLEAN('w', "new-window", &new_window,
 			"Launches the EDITOR from a new terminal window.",
 			NULL, 0, 0
 		),
@@ -384,17 +387,16 @@ int main(int argc, const char** argv) {
 
 	argc = argparse_parse(&argparse, argc, argv);
 
-	int fd;
-	FILE* fp = NULL;
+
 	if (volat != 0) {
-		fd = memfd_create("ramfile", 0);
+		safd = memfd_create("ramfile", 0);
 	}
 	else {
-		fp = tmpfile();
-		fd = fileno(fp);
+		safp = tmpfile();
+		safd = fileno(safp);
 	}
 
-	very_simple_cat("Writing input to temporary file", STDIN_FILENO, fd);
+	very_simple_cat("Writing input to storage area", STDIN_FILENO, safd);
 
 
 	// `/proc/$$/fd/$FD`  8 + log10(! pid_t) + log10(! int)
@@ -404,21 +406,27 @@ int main(int argc, const char** argv) {
 	filename[fnamelen] = '\0';
 
 	// NOTE: linux pid_t is signed int so this should be safe.
-	sprintf(filename, "/proc/%d/fd/%d", getpid(), fd);
+	sprintf(filename, "/proc/%d/fd/%d", getpid(), safd);
 
 	{
-		pid_t child = -1;
-		char **cargv = NULL;
-		size_t cargc = 0;
+		pid_t child = -1; int status;
+		char **cargv = NULL; size_t cargc = 0;
 		char *window = NULL;
 		char *editor = NULL;
 		int l = 0;
 
+		void memsafety() {
+			free(cargv);
+			free(window);
+			free(editor);
+			free(filename);
+		}
+
+		atexit(&memsafety);
+
 		// Preset errno to zero as it's basically a non-error and we can use it
 		// to check for error throws.
 		errno = 0;
-
-		if (verbose != 0) fprintf(stderr, "Info: Using storage medium: %s\n", filename);
 
 		/* NOTE:
 		 *  Struggling to figure out what we need to do to determine the user's preffered
@@ -430,8 +438,7 @@ int main(int argc, const char** argv) {
 		 *  GTK: gsettings get org.gnome.desktop.default-applications.terminal exec
 		 *       gsettings get org.gnome.desktop.default-applications.terminal exec-arg
 		 */
-		if (new_window == NULL) {}
-		else if (*new_window == '\0') {
+		if (new_window != 0) {
 			char *winopts[2]; l=0;
 			winopts[0] = getenv("TERM");
 			winopts[1] = "x-terminal-emulator";
@@ -444,11 +451,6 @@ int main(int argc, const char** argv) {
 			}
 			while (shexpaccvar(&window, &cargv, &cargc) != true && l < 2);
 			if (errno != 0) error(1, errno, "Couldn't establish a suitable terminal");
-		}
-		else {
-			window = strdup(new_window);
-			if (shexpaccvar(&window, &cargv, &cargc) != true)
-				error(1, errno, "Couldn't find terminal %s", new_window);
 		}
 
 		if (argc != 0) {
@@ -478,45 +480,42 @@ int main(int argc, const char** argv) {
 		}
 
 		if (pushvar(&filename, &cargv, &cargc) != true)
-			error(1, errno, "Couldn't append filename argument.");
+			error(1, errno, "Couldn't append required storage area argument.");
 
-		// if (errno = posix_spawn(&child, cargv[0], NULL, 0, cargv+sizeof(void*), environ) != 0)
-		// 	error(1, errno, "Failed to execute");
+		posix_spawn_file_actions_t fact;
+		posix_spawn_file_actions_init(&fact);
+		// Open only fd 0 and 1 to TTY, we want to inherit stderr
+		posix_spawn_file_actions_addopen(&fact, 0, "/dev/tty", O_RDWR, (mode_t) 0);
+		posix_spawn_file_actions_adddup2(&fact, 0, 1);
+		// NOTE: execv convention makes argument 0 a redundant copy of the
+		//   `program` argument; shifting the array will always ignore the first
+		//   entry in the supplied variadic list.
+		if (errno = posix_spawn(&child, cargv[0], &fact, 0, cargv, environ) != 0)
+			error(1, errno, "Failed to execute");
 
-		size_t argsize=0;
-		for (; cargv[l] != (char*) NULL; argsize+=strlen(cargv[l]));
-		
 
-		// TODO: await for child PID and check output status for errors before
-		//       concatting to STDOUT
-		int childstatus = 0;
 		await:
-		waitpid(child, &childstatus, WCONTINUED);
-		if (WIFEXITED(childstatus) != 0) {
+		waitpid(child, &status, WCONTINUED);
+		if (WIFEXITED(status) != 0) {
 			if (verbose != 0) fprintf(stderr, "Info: Child exited normally.\n");
 		}
-		else if (WIFSTOPPED(childstatus) != 0) {
+		else if (WIFSTOPPED(status) != 0) {
 			fprintf(stderr, "Info: Child stopped, waiting for it to continue.\n");
 			goto await;
 		}
-		else if (WIFCONTINUED(childstatus) != 0) {
+		else if (WIFCONTINUED(status) != 0) {
 			fprintf(stderr, "Info: Child continued, waiting for valid termination.\n");
 			goto await;
 		}
 		else {
-			switch(WEXITSTATUS(childstatus)) {
+			switch(WEXITSTATUS(status)) {
 				// TODO: specialize error reporting
 				default: exit(1);
 			}
 		}
-
-		free(cargv);
-		free(window);
-		free(editor);
 	}
 
-	free(filename);
-	very_simple_cat("Writing modified contents to stdout", fd, STDOUT_FILENO);
+	very_simple_cat("Writing modified contents to stdout", safd, STDOUT_FILENO);
 
 	return 0;
 }
