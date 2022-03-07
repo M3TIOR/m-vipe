@@ -18,7 +18,6 @@ target_link_options(m-vipe PUBLIC "-lm")
 # TODO: NOTE: XXX:
 #    THIS OF ALL THINGS WORKS: gcc -ggdb -o vipe $(find . -name *.o -print) -lm
 #    FIGURE OUT WHY THE FUCK CMAKE ISN'T DOING IT'S JOB!!!!!
-#
 # gdb
 
 configure_file(src/m-vipe.h.in m-vipe.h)
@@ -32,5 +31,4 @@ target_include_directories(m-vipe PUBLIC
 	"${PROJECT_BINARY_DIR}"
 	"${PROJECT_SOURCE_DIR}/deps/argparse"
 	"${PROJECT_SOURCE_DIR}/deps/gnulib"
-#	"${PROJECT_SOURCE_DIR}/deps/gnulib/lib"
 )

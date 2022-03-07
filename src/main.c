@@ -5,7 +5,7 @@
 
 // Standard Includes
 #include <stdbool.h>
-#include <string.h> // unistd must be before string.h to ensure deterministic strdup
+#include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -14,7 +14,7 @@
 #include <math.h>
 
 // External Includes
-#include <unistd.h>
+#include <unistd.h> // may need to be included before string.h for strdup
 #include <spawn.h>
 #include <fcntl.h>
 #include <limits.h> // ARG_MAX
@@ -30,6 +30,7 @@
 #include <m-vipe.h>
 #include "die.h"
 #include "ioblksize.h"
+
 
 /**
  * NOTE: See https://stackoverflow.com/questions/3437404/min-and-max-in-c
@@ -59,6 +60,7 @@
 	size * ((1 << (int) floor(log2((count) * size))) >> 1) \
 )
 
+
 static const char *const usage[] = {
 	"m-vipe [-Vwv] [-f FILE] [[--] EDITOR [ARGS...]]",
 	"m-vipe [-h] [--version]",
@@ -76,6 +78,10 @@ int very_simple_cat(const char *action, int infd, int outfd) {
 	 *  files. Which is a little bit rediculous in C. This cuts out a lot of their
 	 *  well intentioned scaffolding in favor of a simpler, easier to maintain
 	 *  method.
+	 *
+	 *  If this ever does get integrated into moreutils or some other
+	 *  GNU toolchain, I imagine this will need to get refactored to target
+	 *  systems like Cygwin again.
 	 */
 
 	size_t page_size = (size_t) sysconf(_SC_PAGESIZE);
@@ -100,10 +106,8 @@ int very_simple_cat(const char *action, int infd, int outfd) {
 	size_t n_read;
 	while (true) {
 		n_read = safe_read(infd, buf, insize);
-		if (n_read == SAFE_READ_ERROR) {
-			error(0, errno, action);
-			return false;
-		}
+		if (n_read == SAFE_READ_ERROR)
+			die(1, errno, action);
 
 		if (n_read == 0) return 0;
 
@@ -133,6 +137,8 @@ bool shexpaccvar(char **str, char ***argv, size_t *argc) {
 	// TODO: make this function and shpaccvar not fail when user supplied full path.
 	if (*str == NULL) return false;
 
+	// NOTE: This isn't actually a "correct" use for IFS. Though it's not very far off.
+	//   See: https://web.archive.org/web/20210513070928/http://mywiki.wooledge.org/IFS
 	char *ifs = " \t\n";
 	char *path = getenv("PATH"); if (path == NULL) path="";
 	size_t slenb = strlen(*str) * sizeof(char);
@@ -311,8 +317,7 @@ void passive_error(int verbose, const char* message) {
 		case 0: return;
 		// TODO: process fatal errors with more vigor, fatals always output.
 		case ENOMEM: case EHWPOISON: case ENOSPC:
-			error(0, errno, "Fatal: %s", message);
-			exit(1);
+			error(1, errno, "Fatal: %s", message);
 		default:
 			if (verbose != 0)
 				error(0, errno, "Error: %s", message);
@@ -328,9 +333,11 @@ int main(int argc, const char** argv) {
 	int show_version = 0;
 	int new_window = 0;
 	const char *frompath = NULL;
+	posix_spawn_file_actions_t fact;
 	FILE* safp = NULL;
 	int safd;
 
+	/* clang-format off */
 	struct argparse_option options[] = {
 		OPT_GROUP("POSIX Options:"),
 		OPT_HELP(),
@@ -348,12 +355,6 @@ int main(int argc, const char** argv) {
 		 * NOTE: pipes in newer linux versions are safe for secrets.
 		 * https://unix.stackexchange.com/questions/450877/how-do-pipelines-limit-memory-usage
 		 */
-		// OPT_BOOLEAN('s', "secure", &secure,
-		// 	"Ensures the editor and environment used are suitable for isolating secrets in volatile memory."
-		// ),
-		// OPT_BOOLEAN('S', "stream-capable", &stream,
-		// 	"Launches the editor before the input stream finishes filling the buffer."
-		// ),
 		OPT_BOOLEAN('v', "verbose", &verbose,
 			"Change the verbosity of the program",
 			NULL, 0, 0
@@ -374,6 +375,7 @@ int main(int argc, const char** argv) {
 		),
 		OPT_END()
 	};
+	/* clang-format on */
 
 	struct argparse argparse;
 	argparse_init(&argparse, options, usage, 0);
@@ -388,6 +390,7 @@ int main(int argc, const char** argv) {
 	argc = argparse_parse(&argparse, argc, argv);
 
 
+	// TODO: Do safety checks for these allocators
 	if (volat != 0) {
 		safd = memfd_create("ramfile", 0);
 	}
@@ -428,6 +431,8 @@ int main(int argc, const char** argv) {
 		// to check for error throws.
 		errno = 0;
 
+		posix_spawn_file_actions_init(&fact);
+
 		/* NOTE:
 		 *  Struggling to figure out what we need to do to determine the user's preffered
 		 *  Terminal emulator. It seems to be different on every Linux distro. The program
@@ -452,6 +457,14 @@ int main(int argc, const char** argv) {
 			while (shexpaccvar(&window, &cargv, &cargc) != true && l < 2);
 			if (errno != 0) error(1, errno, "Couldn't establish a suitable terminal");
 		}
+		else {
+			// If we're preserving the terminal and not using an alt window, ensure
+			// we actually inherit the TTY. But we don't need this when we're using
+			// a new window.
+			// Open only fd 0 and 1 to TTY, we want to inherit stderr
+			posix_spawn_file_actions_addopen(&fact, 0, "/dev/tty", O_RDWR, (mode_t) 0);
+			posix_spawn_file_actions_adddup2(&fact, 0, 1);
+		}
 
 		if (argc != 0) {
 			editor = strdup(argv[0]);
@@ -463,6 +476,8 @@ int main(int argc, const char** argv) {
 		}
 		else {
 			char *editopts[5]; l=0;
+			// For implementation considerations see:
+			//   https://unix.stackexchange.com/questions/316856
 			editopts[0] = "sensible-editor"; // Try Debian-alikes first
 			editopts[1] = getenv("VISUAL"); // Then in order of user friendlyness
 			editopts[2] = getenv("EDITOR");
@@ -482,11 +497,6 @@ int main(int argc, const char** argv) {
 		if (pushvar(&filename, &cargv, &cargc) != true)
 			error(1, errno, "Couldn't append required storage area argument.");
 
-		posix_spawn_file_actions_t fact;
-		posix_spawn_file_actions_init(&fact);
-		// Open only fd 0 and 1 to TTY, we want to inherit stderr
-		posix_spawn_file_actions_addopen(&fact, 0, "/dev/tty", O_RDWR, (mode_t) 0);
-		posix_spawn_file_actions_adddup2(&fact, 0, 1);
 		// NOTE: execv convention makes argument 0 a redundant copy of the
 		//   `program` argument; shifting the array will always ignore the first
 		//   entry in the supplied variadic list.
@@ -515,6 +525,7 @@ int main(int argc, const char** argv) {
 		}
 	}
 
+	lseek(safd, 0, SEEK_SET);
 	very_simple_cat("Writing modified contents to stdout", safd, STDOUT_FILENO);
 
 	return 0;

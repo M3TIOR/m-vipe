@@ -1,3 +1,24 @@
+# NOTE: __These git submodules are small projects.__
+#   Not all use Semantic Versioning and git can be funky, so I'm adding
+#   each commit number for tracking in here above those entries.
+#   Hopefully if the submodule tracking gets screwed up inside git, that
+#   information can be used to restore this project to a buildable state.
+#
+# Fetch future commits with `git log --pretty=format:'%H' -n 1`
+# TODO: Maybe make this process easier for future maintenance with a script.
+
+# Commit: d2fe1ee2e7518218711e764a71924d9724cf2f43
 [submodule "deps/argparse"]
 	path = deps/argparse
 	url = https://github.com/cofyc/argparse
+	branch = v1.1.0
+
+# Commit: fbbdf1467eb0d04a6ee465def2e529e4c87f2118
+[submodule "deps/munit"]
+	path = deps/munit
+	url = https://github.com/nemequ/munit
+
+[submodule "deps/theft"]
+	path = deps/theft
+	url = https://github.com/silentbicycle/theft
+	branch = v0.4.5

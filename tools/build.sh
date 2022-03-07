@@ -4,7 +4,8 @@ SELF="$(readlink -nf "$0")";
 PROCDIR="$(dirname "$SELF")";
 
 help(){
-	echo "Usage: build.sh []";
+	echo "Usage: build.sh [-R]";
+	echo "       build.sh --update-gnulib";
 	echo;
 }
 
@@ -113,8 +114,8 @@ cd "$PROCDIR/../build";
 if cmake ..; then
 	cmake --build . || true;
 
+	# TODO: fix cmake build and remove this l8r.
 	echo "Running GCC...";
 	gcc -ggdb -o vipe $(find . -name *.o -print) -lm
 	echo "DONE";
-	# TODO: fix cmake build and remove this l8r.
 fi;

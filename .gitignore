@@ -1,4 +1,6 @@
 build/
 deps/.gnulib-source
+tools/.bin/*
+!tools/.bin/clang-toolbox.py
 
 /**/CMakeFiles/

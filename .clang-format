@@ -1,0 +1,185 @@
+# @use clang-format>=13.0.0
+# @copyright - (C) 2021  Ruby Allison Rose
+# SPDX-License-Identifier: MIT
+
+# Language C or C++ is handle by the same entry
+Language: Cpp
+
+# For more information on styling options see the following link:
+# https://releases.llvm.org/13.0.0/tools/clang/docs/ClangFormatStyleOptions.html
+
+################################################################################
+### Repository Specific Options
+# AttributeMacros:
+# ColumnLimit:
+# CommentPragmas:
+# DisableFormat:
+# ForEachMacros:
+# IfMacros:
+# IncludeCategories:
+# IncludeIsMainRegex:
+# IncludeIsMainSourceRegex:
+# MacroBlockBegin:
+# MacroBlockEnd:
+# NamespaceMacros:
+ReflowComments: true
+# SpacesBeforeTrailingComments:
+Standard: Auto
+# StatementAttributeLikeMacros:
+# StatementMacros:
+# TypenameMacros:
+# WhitespaceSensitiveMacros:
+
+################################################################################
+### Most Important / Disputed Options
+# Similar to Python's PEP 0008: https://www.python.org/dev/peps/pep-0008/
+
+# Improves legacy device compat, and it helps for multitasking / splitscreen
+ColumnLimit: 80
+ConstructorInitializerIndentWidth: 2
+ContinuationIndentWidth: 2
+IndentWidth: 2
+MaxEmptyLinesToKeep: 2
+TabWidth: 2
+# Posix is superior, only because it's an open standard.
+UseCRLF: false
+# Uses editors to manage indent lenght, per-user visual config w/o source mods.
+UseTab: ForIndentation
+
+################################################################################
+### All Other Format Options
+AccessModifierOffset: 1
+AlignAfterOpenBracket: DontAlign
+AlignArrayOfStructures: None
+AlignConsecutiveAssignments: None
+AlignConsecutiveBitFields: AcrossEmptyLinesAndComments
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+AlignEscapedNewlines: DontAlign
+AlignOperands: AlignAfterOperator
+AlignTrailingComments: false
+AllowAllArgumentsOnNextLine: false
+AllowAllConstructorInitializersOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: true
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: Yes
+# AttributeMacros:                                                    # SEE TOP
+BinPackArguments: false
+BinPackParameters: false
+BitFieldColonSpacing: After
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: true
+  AfterEnum: false
+  AfterExternBlock: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterControlStatement: MultiLine
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: true
+  IndentBraces: false
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Custom
+BreakBeforeConceptDeclarations: false
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: BeforeColon
+BreakStringLiterals: true
+# ColumnLimit:                                                        # SEE TOP
+# CommentPragmas:                                                     # SEE TOP
+CompactNamespaces: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+Cpp11BracedListStyle: false
+DeriveLineEnding: false
+DerivePointerAlignment: false
+# DisableFormat: false                                                # PER DIR
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: Always
+FixNamespaceComments: false
+# ForEachMacros:                                                      # SEE TOP
+# IfMacros:                                                           # SEE TOP
+IncludeBlocks: Preserve
+# IncludeCategories:                                                  # SEE TOP
+# IncludeIsMainRegex:                                                 # SEE TOP
+# IncludeIsMainSourceRegex:                                           # SEE TOP
+IndentAccessModifiers: true
+IndentCaseBlocks: false
+IndentCaseLabels: true
+IndentExternBlock: Indent
+IndentGotoLabels: true
+IndentPPDirectives: BeforeHash
+IndentRequires: true # IDK about this one, never used it b4. May change l8r
+# IndentWidth:                                                        # SEE TOP
+IndentWrappedFunctionNames: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+LambdaBodyIndentation: OuterScope
+# Language:                                                           # SEE TOP
+# MacroBlockBegin:                                                    # SEE TOP
+# MacroBlockEnd:                                                      # SEE TOP
+# MaxEmptyLinesToKeep:                                                # SEE TOP
+NamespaceIndentation: All
+# NamespaceMacros:                                                    # SEE TOP
+PPIndentWidth: -1
+
+# TODO: research what these do.
+# PenaltyBreakAssignment:
+# PenaltyBreakBeforeFirstCallParameter:
+# PenaltyBreakComment:
+# PenaltyBreakFirstLessLess:
+# PenaltyBreakString:
+# PenaltyBreakTemplateDeclaration:
+# PenaltyExcessCharacter:
+# PenaltyIndentedWhitespace:
+# PenaltyReturnTypeOnItsOwnLine:
+
+PointerAlignment: Right # Left hand pointer assigns will break C code.
+# RawStringFormats:                                                   # SEE TOP
+ReferenceAlignment: Right # Consistency with pointers.
+# ReflowComments:                                                     # SEE TOP
+ShortNamespaceLines: 1
+SortIncludes: CaseSensitive
+SortUsingDeclarations: false
+SpaceAfterCStyleCast: true
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceAroundPointerQualifiers: Before # Some compilers recognize this easier
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: true
+SpaceBeforeCtorInitializerColon: false
+SpaceBeforeInheritanceColon: false
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
+# SpacesBeforeTrailingComments:                                       # SEE TOP
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: false
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: -1
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+# Standard:                                                           # SEE TOP
+# StatementAttributeLikeMacros:                                       # SEE TOP
+# StatementMacros:                                                    # SEE TOP
+# TabWidth:                                                           # SEE TOP
+# TypenameMacros:                                                     # SEE TOP
+# UseCRLF:                                                            # SEE TOP
+# UseTab:                                                             # SEE TOP
+# WhitespaceSensitiveMacros:                                          # SEE TOP
